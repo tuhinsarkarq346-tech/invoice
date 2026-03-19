@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import html2pdf from 'html2pdf.js';
-import { Download, RefreshCw, BarChart3, Receipt } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { Download, RefreshCw, BarChart3, Receipt, Share2, Users, MessageCircle } from 'lucide-react';
 
 const upiID = "debabratabiswas9400@okhdfcbank";
 
@@ -97,21 +98,120 @@ export default function App() {
         const originalTransform = container.style.transform;
         const originalHeight = wrapper.style.height;
         
-        container.style.transform = 'none';
-        wrapper.style.height = 'auto';
+        try {
+            container.style.transform = 'none';
+            wrapper.style.height = 'auto';
+            
+            // Allow DOM to update before capturing
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const canvas = await html2canvas(container, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollY: 0,
+                windowWidth: 800
+            });
+            
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [800, container.offsetHeight]
+            });
+            
+            pdf.addImage(imgData, 'JPEG', 0, 0, 800, container.offsetHeight);
+            pdf.save(`BCW_Invoice_${isPaid ? 'Paid' : 'Unpaid'}_${Date.now()}.pdf`);
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            alert("Failed to generate PDF. Please try again.");
+        } finally {
+            container.style.transform = originalTransform;
+            wrapper.style.height = originalHeight;
+        }
+    };
+
+    const sharePdf = async () => {
+        if (!invoiceContainerRef.current || !wrapperRef.current) return;
+        const container = invoiceContainerRef.current;
+        const wrapper = wrapperRef.current;
         
-        const opt = { 
-            margin: 0, 
-            filename: `BCW_Invoice_${isPaid ? 'Paid' : 'Unpaid'}_${Date.now()}.pdf`, 
-            image: { type: 'jpeg', quality: 1 }, 
-            html2canvas: { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 }, 
-            jsPDF: { unit: 'px', format: [800, container.offsetHeight], orientation: 'portrait' } 
-        };
+        const originalTransform = container.style.transform;
+        const originalHeight = wrapper.style.height;
         
-        await html2pdf().set(opt).from(container).save();
-        
-        container.style.transform = originalTransform;
-        wrapper.style.height = originalHeight;
+        try {
+            container.style.transform = 'none';
+            wrapper.style.height = 'auto';
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const canvas = await html2canvas(container, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollY: 0,
+                windowWidth: 800
+            });
+            
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [800, container.offsetHeight]
+            });
+            
+            pdf.addImage(imgData, 'JPEG', 0, 0, 800, container.offsetHeight);
+            const pdfBlob = pdf.output('blob');
+            const fileName = `BCW_Invoice_${isPaid ? 'Paid' : 'Unpaid'}_${Date.now()}.pdf`;
+            const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Biswas Car Wash Invoice',
+                    text: 'Here is your invoice from Biswas Car Wash.',
+                });
+            } else {
+                alert("File sharing is not supported on this device. Downloading instead.");
+                pdf.save(fileName);
+            }
+        } catch (error) {
+            console.error("Error sharing PDF:", error);
+            alert("Failed to share PDF. Please try again.");
+        } finally {
+            container.style.transform = originalTransform;
+            wrapper.style.height = originalHeight;
+        }
+    };
+
+    const sendWhatsAppText = () => {
+        if (!customerPhone) {
+            alert("Please enter a customer phone number first.");
+            return;
+        }
+        const text = `Hello ${customerName ? customerName : 'Customer'},\n\nHere are your bill details from Biswas Car Wash:\nInvoice No: ${invoiceNo}\nDate: ${invoiceDate}\nTotal Amount: ₹${currentTotal}\nStatus: ${isPaid ? 'PAID' : 'UNPAID'}\n\nThank you for choosing us!`;
+        const phone = customerPhone.length === 10 ? `91${customerPhone}` : customerPhone.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+    const handleSelectContact = async () => {
+        if ('contacts' in navigator && 'ContactsManager' in window) {
+            try {
+                const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    if (contacts[0].name?.length > 0) setCustomerName(contacts[0].name[0]);
+                    if (contacts[0].tel?.length > 0) {
+                        let phone = contacts[0].tel[0].replace(/\D/g, '');
+                        if (phone.length === 12 && phone.startsWith('91')) phone = phone.substring(2);
+                        setCustomerPhone(phone);
+                    }
+                }
+            } catch (ex) {
+                console.error("Error selecting contact:", ex);
+            }
+        } else {
+            alert("Contact selection is not supported on this device/browser. Please enter manually.");
+        }
     };
 
     const upiUrl = `upi://pay?pa=${upiID}&pn=Biswas%20Car%20Wash&am=${currentTotal}&cu=INR`;
@@ -212,13 +312,22 @@ export default function App() {
                         </div>
 
                         <div className="space-y-4">
-                            <input 
-                                type="text" 
-                                value={customerName}
-                                onChange={e => setCustomerName(e.target.value)}
-                                className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl focus:border-[#06b6d4] outline-none font-bold" 
-                                placeholder="Customer Name" 
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={customerName}
+                                    onChange={e => setCustomerName(e.target.value)}
+                                    className="flex-grow px-4 py-3 border-2 border-slate-100 rounded-xl focus:border-[#06b6d4] outline-none font-bold" 
+                                    placeholder="Customer Name" 
+                                />
+                                <button 
+                                    onClick={handleSelectContact}
+                                    className="bg-slate-100 text-[#1e3a8a] px-4 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center"
+                                    title="Select from Contacts"
+                                >
+                                    <Users className="w-6 h-6" />
+                                </button>
+                            </div>
                             <input 
                                 type="tel" 
                                 value={customerPhone}
@@ -390,10 +499,22 @@ export default function App() {
 
                         <div className="grid grid-cols-2 gap-4 mt-8 pb-10">
                             <button 
-                                onClick={downloadPdf}
-                                className="bg-[#1e3a8a] text-white py-5 rounded-2xl font-black text-xl shadow-lg uppercase tracking-wider flex items-center justify-center"
+                                onClick={sharePdf}
+                                className="bg-[#25D366] text-white py-4 rounded-2xl font-black text-lg shadow-lg uppercase tracking-wider flex items-center justify-center"
                             >
-                                <Download className="mr-2 w-6 h-6" /> Download PDF
+                                <Share2 className="mr-2 w-5 h-5" /> Share PDF
+                            </button>
+                            <button 
+                                onClick={sendWhatsAppText}
+                                className="bg-[#128C7E] text-white py-4 rounded-2xl font-black text-lg shadow-lg uppercase tracking-wider flex items-center justify-center"
+                            >
+                                <MessageCircle className="mr-2 w-5 h-5" /> WA Text
+                            </button>
+                            <button 
+                                onClick={downloadPdf}
+                                className="bg-[#1e3a8a] text-white py-4 rounded-2xl font-black text-lg shadow-lg uppercase tracking-wider flex items-center justify-center"
+                            >
+                                <Download className="mr-2 w-5 h-5" /> Download
                             </button>
                             <button 
                                 onClick={() => {
@@ -402,9 +523,9 @@ export default function App() {
                                     setServices(initialServices);
                                     setCurrentView('form');
                                 }}
-                                className="bg-white text-slate-400 py-5 rounded-2xl font-black border-2 border-slate-100 uppercase flex items-center justify-center"
+                                className="bg-white text-slate-400 py-4 rounded-2xl font-black border-2 border-slate-100 uppercase flex items-center justify-center"
                             >
-                                <RefreshCw className="mr-2 w-6 h-6" /> New Bill
+                                <RefreshCw className="mr-2 w-5 h-5" /> New Bill
                             </button>
                         </div>
                     </main>
