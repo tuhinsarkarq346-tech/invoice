@@ -320,22 +320,20 @@ export default function App() {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={customerName}
-                                    onChange={e => setCustomerName(e.target.value)}
-                                    className="flex-grow px-4 py-3 border-2 border-slate-100 rounded-xl focus:border-[#06b6d4] outline-none font-bold" 
-                                    placeholder="Customer Name" 
-                                />
-                                <button 
-                                    onClick={handleSelectContact}
-                                    className="bg-slate-100 text-[#1e3a8a] px-4 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center"
-                                    title="Select from Contacts"
-                                >
-                                    <Users className="w-6 h-6" />
-                                </button>
-                            </div>
+                            <button 
+                                onClick={handleSelectContact}
+                                className="w-full bg-slate-100 text-[#1e3a8a] py-3 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 font-bold"
+                                title="Select from Contacts"
+                            >
+                                <Users className="w-5 h-5" /> Select Customer from Contacts
+                            </button>
+                            <input 
+                                type="text" 
+                                value={customerName}
+                                onChange={e => setCustomerName(e.target.value)}
+                                className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl focus:border-[#06b6d4] outline-none font-bold" 
+                                placeholder="Customer Name" 
+                            />
                             <input 
                                 type="tel" 
                                 value={customerPhone}
