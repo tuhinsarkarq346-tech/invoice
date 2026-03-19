@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import html2canvas from 'html2canvas';
+import { QRCodeCanvas } from 'qrcode.react';
+import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { Download, RefreshCw, BarChart3, Receipt, Share2, Users, MessageCircle } from 'lucide-react';
 
@@ -66,7 +66,8 @@ export default function App() {
     const handleSetupInvoice = (paidMode: boolean) => {
         setIsPaid(paidMode);
         const newInvoiceNo = "BCW-" + Math.floor(10000 + Math.random() * 90000);
-        setInvoiceDate(new Date().toLocaleDateString('en-GB'));
+        const newInvoiceDate = new Date().toLocaleDateString('en-GB');
+        setInvoiceDate(newInvoiceDate);
         setInvoiceNo(newInvoiceNo);
         setCurrentView('invoice');
 
@@ -78,6 +79,13 @@ export default function App() {
                 customerName: customerName || 'Valued Customer'
             };
             setTransactions(prev => [newTx, ...prev]);
+        }
+
+        // Automatically open WhatsApp text message if paid and phone is available
+        if (paidMode && customerPhone) {
+            const text = `Hello ${customerName ? customerName : 'Customer'},\n\nHere are your bill details from Biswas Car Wash:\nInvoice No: ${newInvoiceNo}\nDate: ${newInvoiceDate}\nTotal Amount: ₹${currentTotal}\nStatus: PAID\n\nThank you for choosing us!`;
+            const phone = customerPhone.length === 10 ? `91${customerPhone}` : customerPhone.replace(/\D/g, '');
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
         }
     };
 
@@ -103,17 +111,17 @@ export default function App() {
             wrapper.style.height = 'auto';
             
             // Allow DOM to update before capturing
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
             
-            const canvas = await html2canvas(container, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                scrollY: 0,
-                windowWidth: 800
+            const imgData = await toJpeg(container, {
+                quality: 0.95,
+                backgroundColor: '#ffffff',
+                pixelRatio: 2,
+                style: {
+                    transform: 'none'
+                }
             });
             
-            const imgData = canvas.toDataURL('image/jpeg', 1.0);
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'px',
@@ -143,17 +151,17 @@ export default function App() {
             container.style.transform = 'none';
             wrapper.style.height = 'auto';
             
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
             
-            const canvas = await html2canvas(container, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                scrollY: 0,
-                windowWidth: 800
+            const imgData = await toJpeg(container, {
+                quality: 0.95,
+                backgroundColor: '#ffffff',
+                pixelRatio: 2,
+                style: {
+                    transform: 'none'
+                }
             });
             
-            const imgData = canvas.toDataURL('image/jpeg', 1.0);
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'px',
@@ -378,7 +386,7 @@ export default function App() {
                     <main className="p-8 flex flex-col items-center space-y-6">
                         <h2 className="text-2xl font-black text-[#1e3a8a] uppercase">Payment Options</h2>
                         <div className="p-6 bg-white border-8 border-slate-50 rounded-[2.5rem] shadow-2xl mb-4">
-                            <QRCodeSVG value={upiUrl} size={220} fgColor="#1e3a8a" />
+                            <QRCodeCanvas value={upiUrl} size={220} fgColor="#1e3a8a" />
                         </div>
                         <div className="w-full space-y-4">
                             <button 
@@ -485,7 +493,7 @@ export default function App() {
                                     <div className="bg-white p-12 flex flex-col items-center justify-center" style={{ width: '800px', height: '1131px', borderTop: '4px dashed #cbd5e1' }}>
                                         <h2 className="text-4xl font-black text-[#1e3a8a] mb-12 uppercase tracking-widest border-b-4 border-[#06b6d4] pb-2">Payment Request</h2>
                                         <div className="p-10 bg-white border-[12px] border-slate-100 rounded-[3rem] shadow-xl">
-                                            <QRCodeSVG value={upiUrl} size={350} fgColor="#1e3a8a" />
+                                            <QRCodeCanvas value={upiUrl} size={350} fgColor="#1e3a8a" />
                                         </div>
                                         <div className="mt-12 text-center space-y-6">
                                             <p className="text-3xl font-bold text-slate-600">Scan to pay <span className="text-[#1e3a8a] font-black">₹<span>{currentTotal}</span></span></p>
