@@ -1,0 +1,5 @@
+{
+  "name": "Biswas Car Wash Billing",
+  "description": "Smart billing system for Biswas Car Wash with PDF invoice generation and UPI payment integration.",
+  "requestFramePermissions": []
+}
